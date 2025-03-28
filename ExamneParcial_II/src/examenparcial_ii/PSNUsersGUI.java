@@ -9,7 +9,6 @@ package examenparcial_ii;
  * @author Nadiesda Fuentes
  */
 
-
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
@@ -100,21 +99,37 @@ public class PSNUsersGUI extends JFrame {
         }
     }
 
-    private void deactivateUser() {
-        String username = usernameField.getText().trim();
-        if (username.isEmpty()) {
-            showError("Ingrese un username");
+   private void deactivateUser() {
+    String username = usernameField.getText().trim();
+    if (username.isEmpty()) {
+        showError("Ingrese un username");
+        return;
+    }
+
+    try {
+        // Verificar primero si el usuario existe
+        if (!psnUsers.userExists(username)) {
+            showError("El usuario no existe");
             return;
         }
 
-        try {
+        int confirm = JOptionPane.showConfirmDialog(
+            this, 
+            "¿Está seguro que desea desactivar este usuario?",
+            "Confirmar desactivación",
+            JOptionPane.YES_NO_OPTION,
+            JOptionPane.WARNING_MESSAGE
+        );
+
+        if (confirm == JOptionPane.YES_OPTION) {
             psnUsers.deactivateUser(username);
             showSuccess("Usuario desactivado exitosamente");
-            usernameField.setText("");
-        } catch (Exception e) {
-            showError("Error: " + e.getMessage());
+            clearFields();
         }
+    } catch (Exception e) {
+        showError("Error al desactivar usuario: " + e.getMessage());
     }
+}
 
     private void searchUser() {
         String username = usernameField.getText().trim();

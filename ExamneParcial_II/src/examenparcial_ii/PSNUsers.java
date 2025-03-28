@@ -9,14 +9,10 @@ package examenparcial_ii;
  * @author Nadiesda Fuentes
  */
 
-
-import java.io.File;
-import java.io.IOException;
-import java.io.RandomAccessFile;
-import java.time.LocalDate;
-import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
-import java.util.List;
+import java.io.*;
+import java.time.*;
+import java.time.format.*;
+import java.util.*;
 
 public class PSNUsers {
     private RandomAccessFile usersFile;
@@ -69,7 +65,7 @@ public class PSNUsers {
             if (isActive) {
                 users.add(username, position);
             }
-            usersFile.skipBytes(8);
+            usersFile.skipBytes(8); // Saltar contadores (2 ints = 8 bytes)
         }
     }
 
@@ -90,9 +86,9 @@ public class PSNUsers {
         long position = usersFile.getFilePointer();
 
         usersFile.writeUTF(username);
-        usersFile.writeBoolean(true);
-        usersFile.writeInt(0);
-        usersFile.writeInt(0);
+        usersFile.writeBoolean(true); // Activo por defecto
+        usersFile.writeInt(0); // Contador de trofeos
+        usersFile.writeInt(0); // Puntos iniciales
 
         users.add(username, position);
     }
@@ -103,9 +99,11 @@ public class PSNUsers {
             throw new IllegalArgumentException("Usuario no encontrado: " + username);
         }
 
-        usersFile.seek(position + usersFile.readUTF().length());
-        usersFile.writeBoolean(false);
-        users.remove(username);
+        usersFile.seek(position);
+        String storedUsername = usersFile.readUTF(); // Leer username
+        usersFile.writeBoolean(false); // Marcar como inactivo
+        
+        users.remove(username); // Eliminar de la tabla hash
     }
 
     public void addTrophyTo(String username, String game, String trophyName, Trophy type) throws IOException {
@@ -114,7 +112,7 @@ public class PSNUsers {
             throw new IllegalArgumentException("Usuario no encontrado: " + username);
         }
 
-        // Verificar usuario activo
+        // Verificar estado activo
         usersFile.seek(position);
         String storedUsername = usersFile.readUTF();
         boolean isActive = usersFile.readBoolean();
@@ -128,13 +126,6 @@ public class PSNUsers {
         }
 
         // Guardar trofeo
-        saveTrophyRecord(username, game, trophyName, type);
-
-        // Actualizar contadores
-        updateUserCounters(position, storedUsername, type.getPoints());
-    }
-
-    private void saveTrophyRecord(String username, String game, String trophyName, Trophy type) throws IOException {
         try (RandomAccessFile trophyFile = new RandomAccessFile("psn_trophies.dat", "rw")) {
             trophyFile.seek(trophyFile.length());
             trophyFile.writeUTF(username);
@@ -143,16 +134,15 @@ public class PSNUsers {
             trophyFile.writeUTF(trophyName);
             trophyFile.writeUTF(LocalDate.now().format(DATE_FORMATTER));
         }
-    }
 
-    private void updateUserCounters(long position, String username, int pointsToAdd) throws IOException {
-        usersFile.seek(position + username.length() + 1);
+        // Actualizar contadores
+        usersFile.seek(position + storedUsername.length() + 1); // +1 por el boolean
         int trophyCount = usersFile.readInt();
-        int currentPoints = usersFile.readInt();
+        int points = usersFile.readInt();
 
-        usersFile.seek(position + username.length() + 1);
+        usersFile.seek(position + storedUsername.length() + 1);
         usersFile.writeInt(trophyCount + 1);
-        usersFile.writeInt(currentPoints + pointsToAdd);
+        usersFile.writeInt(points + type.getPoints());
     }
 
     public UserInfo playerInfo(String username) throws IOException {
@@ -167,8 +157,7 @@ public class PSNUsers {
         int trophyCount = usersFile.readInt();
         int points = usersFile.readInt();
 
-        List<TrophyInfo> trophies = loadTrophies(username);
-        return new UserInfo(foundUsername, isActive, trophyCount, points, trophies);
+        return new UserInfo(foundUsername, isActive, trophyCount, points, loadTrophies(username));
     }
 
     private List<TrophyInfo> loadTrophies(String username) throws IOException {
